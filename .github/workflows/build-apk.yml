@@ -1,0 +1,40 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build the APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Publish the APK as a GitHub release (easy to download on the phone)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk StockAndBill.apk
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest StockAndBill.apk --title "Stock & Bill APK" --notes "Latest build. Download StockAndBill.apk and install it."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StockAndBill-apk
+          path: StockAndBill.apk

@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.jeevitesh.billing'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.jeevitesh.billing'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // One fixed key for every build, so a new APK installs over the old one and keeps working.
+    // (It is the standard public "debug" key, fine for a private tool, not for the Play Store.)
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Google's barcode scanner screen: no camera permission needed, reads all common barcodes
+    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
+}
