@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <!-- No INTERNET permission on purpose: the app works fully offline and nothing leaves the phone. -->
 
     <application
@@ -8,13 +11,7 @@
         android:icon="@drawable/ic_launcher"
         android:label="Stock &amp; Bill"
         android:theme="@android:style/Theme.Material.NoActionBar">
-
-        <!-- downloads Google's scanner screen when the app is installed, so the first scan is instant -->
-        <meta-data
-            android:name="com.google.mlkit.vision.DEPENDENCIES"
-            android:value="barcode_ui" />
-
-        <activity
+<activity
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"

@@ -85,6 +85,11 @@ pre.rc{white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;fo
 .full h2{font-size:26px}
 .full p{color:var(--mut);line-height:1.5}
 .demo{background:#3a2a05;color:#ffd77a;text-align:center;font-size:12.5px;padding:5px 8px}
+svg{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ic{display:inline-flex;width:22px;height:22px;margin-right:10px;vertical-align:-4px}.ic svg{width:100%;height:100%}
+.big{display:flex;align-items:center;justify-content:center}
+.banner .ic{margin-right:0;flex:none}.ok .ic{margin-right:4px;vertical-align:-5px}
+nav button b{display:block;width:24px;height:24px}nav button b svg{width:100%;height:100%}
 </style>
 </head>
 <body>
@@ -105,6 +110,17 @@ var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, f
 var fmt = function (n) { return '₹' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-IN'); };
 var when = function (ts) { try { return new Date(ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return new Date(ts).toString(); } };
 var sameDay = function (a, b) { var x = new Date(a), y = new Date(b); return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate(); };
+
+var IC = {
+  scan: '<svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10"/></svg>',
+  sell: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>',
+  stock: '<svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>',
+  alert: '<svg viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18v.01"/></svg>',
+  bills: '<svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 9h8M8 13h8M8 17h5"/></svg>',
+  settings: '<svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+};
+function ic(n) { return '<span class="ic">' + IC[n] + '</span>'; }
 
 var S = { tab: 'sell', db: { shop: 'My Shop', low: 5, autoAdd: false, products: [] }, sales: [], bill: [], discount: 0, q: '', folder: '', err: '' };
 
@@ -245,8 +261,8 @@ function receiptText(s) {
 }
 function showReceipt(s, low) {
   var lowHTML = '';
-  if (low && low.length) lowHTML = '<div class="lowbox"><b style="color:#ff9aa2">⚠ Running low</b>' + low.map(function (p) { return '<div class="r"><span>' + esc(p.name) + ': <b>' + p.qty + ' left</b></span><button data-act="addstock" data-code="' + esc(p.barcode) + '">Add stock</button></div>'; }).join('') + '</div>';
-  modal('<h3>Bill saved ✔</h3>' + lowHTML + '<pre class="rc">' + esc(receiptText(s)) + '</pre><div class="btns"><button class="btn" data-act="share" data-id="' + esc(s.id) + '">Share bill</button><button class="btn ghost" data-act="close">Done</button></div>');
+  if (low && low.length) lowHTML = '<div class="lowbox"><b style="color:#ff9aa2">Running low</b>' + low.map(function (p) { return '<div class="r"><span>' + esc(p.name) + ': <b>' + p.qty + ' left</b></span><button data-act="addstock" data-code="' + esc(p.barcode) + '">Add stock</button></div>'; }).join('') + '</div>';
+  modal('<h3>Bill saved</h3>' + lowHTML + '<pre class="rc">' + esc(receiptText(s)) + '</pre><div class="btns"><button class="btn" data-act="share" data-id="' + esc(s.id) + '">Share bill</button><button class="btn ghost" data-act="close">Done</button></div>');
 }
 
 /* ---------------- STOCK ---------------- */
@@ -297,7 +313,7 @@ function saveProduct(isNew) {
 /* ---------------- VIEWS ---------------- */
 function lowBanner() {
   var n = lowList().length;
-  return n ? '<div class="banner" data-act="tab" data-tab="alerts">⚠ ' + n + ' product' + (n > 1 ? 's' : '') + ' low or out of stock. Tap to see.</div>' : '';
+  return n ? '<div class="banner" data-act="tab" data-tab="alerts">' + ic("alert") + '<span>' + n + ' product' + (n > 1 ? 's' : '') + ' low or out of stock. Tap to see.</span></div>' : '';
 }
 function sellView() {
   var rows = S.bill.map(function (l) {
@@ -305,7 +321,7 @@ function sellView() {
     return '<div class="line"><div><div class="n">' + esc(p.name) + '</div><div class="s">' + fmt(p.price) + ' each · ' + p.qty + ' in stock</div>' +
       '<div class="step"><button data-act="bill-dec" data-code="' + esc(l.code) + '">−</button><span>' + l.qty + '</span><button data-act="bill-inc" data-code="' + esc(l.code) + '">+</button></div><button class="rm" data-act="bill-rm" data-code="' + esc(l.code) + '">Remove</button></div><div class="amt">' + fmt(p.price * l.qty) + '</div></div>';
   }).join('');
-  return '<button class="big" data-act="scan-sell">📷 Scan item to sell</button>' +
+  return '<button class="big" data-act="scan-sell">'+ic("scan")+'Scan item to sell</button>' +
     '<form class="typed" data-form="sell-code"><input id="codeSell" placeholder="or type / scan a code" autocomplete="off"><button>Add</button></form>' + lowBanner() +
     '<div class="card"><h2>Current bill</h2>' + (rows || '<div class="empty">No items yet. Scan the first product.</div>') + '</div>' +
     (S.bill.length ? '<div class="card"><div class="disc"><span class="muted" style="flex:1">Discount (₹)</span><input id="discount" type="number" inputmode="decimal" min="0" step="any" value="' + (S.discount || '') + '" placeholder="0"></div><div id="totals">' + totalsHTML(billTotals()) + '</div></div>' : '') +
@@ -321,17 +337,17 @@ function stockRows() {
 }
 function stockView() {
   var units = S.db.products.reduce(function (a, p) { return a + p.qty; }, 0);
-  return '<button class="big" data-act="scan-stock">📷 Scan to add stock</button>' +
+  return '<button class="big" data-act="scan-stock">'+ic("scan")+'Scan to add stock</button>' +
     '<form class="typed" data-form="stock-code"><input id="codeStock" placeholder="or type / scan a code" autocomplete="off"><button>Add</button></form>' +
     '<div class="stat"><div><span class="muted">Products</span><b>' + S.db.products.length + '</b></div><div><span class="muted">Units in stock</span><b>' + units + '</b></div></div>' +
     '<input class="search" id="search" placeholder="Search name or barcode" value="' + esc(S.q) + '" style="margin-bottom:10px"><div class="card" id="stockList">' + stockRows() + '</div>';
 }
 function alertsView() {
   var l = lowList();
-  if (!l.length) return '<div class="ok">✅ All good. No product is at or below its alert limit.</div>';
+  if (!l.length) return '<div class="ok">' + ic('check') + ' All good. No product is at or below its alert limit.</div>';
   return '<div class="card"><h2>Add stock for these</h2>' + l.map(function (p) {
     return '<div class="prow" data-act="addstock" data-code="' + esc(p.barcode) + '"><div class="i"><div class="n">' + esc(p.name) + (p.qty <= 0 ? '<span class="pill">OUT</span>' : '') + '</div><div class="s">alert at ' + limitOf(p) + ' or less · ' + esc(p.barcode) + '</div></div><div class="qty low">' + p.qty + '</div></div>';
-  }).join('') + '</div><button class="big" data-act="scan-stock">📷 Scan to add stock</button>';
+  }).join('') + '</div><button class="big" data-act="scan-stock">'+ic("scan")+'Scan to add stock</button>';
 }
 function billsView() {
   var today = S.sales.filter(function (s) { return sameDay(s.ts, Date.now()); });
@@ -353,12 +369,12 @@ function settingsView() {
     '<p class="muted" style="text-align:center;margin-top:8px">Stock &amp; Bill 1.0 · works offline · no account, no database</p>';
 }
 var VIEWS = { sell: sellView, stock: stockView, alerts: alertsView, bills: billsView, settings: settingsView };
-var TABS = [['sell', '🧾', 'Sell'], ['stock', '📦', 'Stock'], ['alerts', '⚠️', 'Alerts'], ['bills', '📜', 'Bills'], ['settings', '⚙️', 'Settings']];
+var TABS = [['sell', 'sell', 'Sell'], ['stock', 'stock', 'Stock'], ['alerts', 'alert', 'Alerts'], ['bills', 'bills', 'Bills'], ['settings', 'settings', 'Settings']];
 function render() {
   $('#title').textContent = S.db.shop || 'Stock & Bill';
   $('#view').innerHTML = VIEWS[S.tab]();
   var n = lowList().length;
-  $('#nav').innerHTML = TABS.map(function (t) { return '<button class="' + (S.tab === t[0] ? 'on' : '') + '" data-act="tab" data-tab="' + t[0] + '"><b>' + t[1] + '</b>' + t[2] + (t[0] === 'alerts' && n ? '<span class="badge">' + n + '</span>' : '') + '</button>'; }).join('');
+  $('#nav').innerHTML = TABS.map(function (t) { return '<button class="' + (S.tab === t[0] ? 'on' : '') + '" data-act="tab" data-tab="' + t[0] + '"><b>' + IC[t[1]] + '</b>' + t[2] + (t[0] === 'alerts' && n ? '<span class="badge">' + n + '</span>' : '') + '</button>'; }).join('');
 }
 
 /* ---------------- exports ---------------- */
@@ -464,7 +480,7 @@ function boot() {
   if (!A) $('#demo').style.display = 'block';
   render();
   var n = lowList().length;
-  if (n) { toast('⚠ ' + n + ' product' + (n > 1 ? 's' : '') + ' low or out of stock', true); buzz(); }
+  if (n) { toast(n + ' product' + (n > 1 ? 's' : '') + ' low or out of stock', true); buzz(); }
 }
 boot();
 })();

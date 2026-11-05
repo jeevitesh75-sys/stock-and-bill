@@ -16,10 +16,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanner;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
+
+import com.google.zxing.integration.android.IntentIntegrator;
+import com.google.zxing.integration.android.IntentResult;
 
 import org.json.JSONObject;
 
@@ -31,7 +30,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Thin native shell around the web app in assets/index.html.
  * The web app calls window.Android.* for the three things a web page cannot do by itself:
- *   scan()                 -> barcode scanner screen, answer comes back to window.onNativeScan(code)
+ *   scan()                 -> camera scanner screen (ZXing, offline), answer comes back to window.onNativeScan(code)
  *   pickFolder()/readFile/writeFile -> a folder the user chooses on the phone (data survives uninstall)
  *   share(text)            -> Android share sheet (WhatsApp etc.)
  */
@@ -117,6 +116,15 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == IntentIntegrator.REQUEST_CODE) {
+            IntentResult r = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+            if (r == null || r.getContents() == null) {
+                js("window.onNativeScanCancel()");
+            } else {
+                js("window.onNativeScan(" + JSONObject.quote(r.getContents()) + ")");
+            }
+            return;
+        }
         if (requestCode != REQ_FOLDER) return;
         if (resultCode == RESULT_OK && data != null && data.getData() != null) {
             Uri u = data.getData();
@@ -235,18 +243,12 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    GmsBarcodeScannerOptions options = new GmsBarcodeScannerOptions.Builder()
-                            .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
-                            .build();
-                    GmsBarcodeScanner scanner = GmsBarcodeScanning.getClient(MainActivity.this, options);
-                    scanner.startScan()
-                            .addOnSuccessListener(code -> {
-                                String v = code.getRawValue() == null ? "" : code.getRawValue();
-                                js("window.onNativeScan(" + JSONObject.quote(v) + ")");
-                            })
-                            .addOnCanceledListener(() -> js("window.onNativeScanCancel()"))
-                            .addOnFailureListener(e -> js("window.onNativeScanError("
-                                    + JSONObject.quote(String.valueOf(e.getMessage())) + ")"));
+                    IntentIntegrator ig = new IntentIntegrator(MainActivity.this);
+                    ig.setDesiredBarcodeFormats(IntentIntegrator.ALL_CODE_TYPES);
+                    ig.setPrompt("Point the camera at the barcode");
+                    ig.setBeepEnabled(true);
+                    ig.setOrientationLocked(false);
+                    ig.initiateScan();
                 }
             });
         }
