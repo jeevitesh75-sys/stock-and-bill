@@ -475,6 +475,7 @@ function boot() {
   if (A && !A.hasFolder()) { showSetup(); return; }
   loadAll();
   if (S.err) { showError(); return; }
+  if (A && A.lastCrash) { var cr = A.lastCrash(); if (cr) setTimeout(function () { modal('<h3>App closed last time</h3><p class="muted">Send this text to get it fixed:</p><pre class="rc">' + esc(cr) + '</pre><div class="btns"><button class="btn ghost" data-act="close">Close</button></div>'); }, 400); }
   S.folder = A ? A.folderName() : '';
   $('#dot').className = 'dot';
   if (!A) $('#demo').style.display = 'block';

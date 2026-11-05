@@ -45,6 +45,22 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("billing", MODE_PRIVATE);
 
+        // Save any crash so the app can show the reason next time it opens.
+        final Thread.UncaughtExceptionHandler old = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(Thread th, Throwable ex) {
+                try {
+                    java.io.StringWriter sw = new java.io.StringWriter();
+                    ex.printStackTrace(new java.io.PrintWriter(sw));
+                    String s = sw.toString();
+                    prefs.edit().putString("crash", s.length() > 1800 ? s.substring(0, 1800) : s).commit();
+                } catch (Throwable ignored) {
+                }
+                if (old != null) old.uncaughtException(th, ex);
+            }
+        });
+
         getWindow().setStatusBarColor(Color.parseColor("#0B0D10"));
         getWindow().setNavigationBarColor(Color.parseColor("#0B0D10"));
 
@@ -154,6 +170,13 @@ public class MainActivity extends Activity {
     private class Bridge {
 
         @JavascriptInterface
+        public String lastCrash() {
+            String c = prefs.getString("crash", "");
+            if (!c.isEmpty()) prefs.edit().remove("crash").apply();
+            return c;
+        }
+
+        @JavascriptInterface
         public boolean hasFolder() {
             Uri t = treeUri();
             return t != null && hasPermission(t);
@@ -243,12 +266,16 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    IntentIntegrator ig = new IntentIntegrator(MainActivity.this);
-                    ig.setDesiredBarcodeFormats(IntentIntegrator.ALL_CODE_TYPES);
-                    ig.setPrompt("Point the camera at the barcode");
-                    ig.setBeepEnabled(true);
-                    ig.setOrientationLocked(false);
-                    ig.initiateScan();
+                    try {
+                        IntentIntegrator ig = new IntentIntegrator(MainActivity.this);
+                        ig.setDesiredBarcodeFormats(IntentIntegrator.ALL_CODE_TYPES);
+                        ig.setPrompt("Point the camera at the barcode");
+                        ig.setBeepEnabled(true);
+                        ig.setOrientationLocked(false);
+                        ig.initiateScan();
+                    } catch (Throwable e) {
+                        js("window.onNativeScanError(" + JSONObject.quote(String.valueOf(e)) + ")");
+                    }
                 }
             });
         }
