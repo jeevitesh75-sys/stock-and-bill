@@ -24,7 +24,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build the APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: gradle assembleDebug --no-daemon
 
       - name: Publish the APK as a GitHub release (easy to download on the phone)
         env:
