@@ -192,6 +192,48 @@ function doScan(handler) {
   scanOnce().then(function (v) { scanning = false; if (v) handler(String(v).trim()); })
     .catch(function (e) { scanning = false; toast('Scanner problem: ' + e.message + '. You can type the code instead.', true); });
 }
+/* selling: the scanner stays open, every scan adds 1 piece, OK brings all of them to the bill */
+function doScanMany() {
+  if (scanning) return;
+  scanning = true;
+  var snap = {};
+  S.db.products.forEach(function (p) { snap[p.barcode] = { n: p.name, q: Math.max(0, p.qty - billQty(p.barcode)) }; });
+  new Promise(function (resolve, reject) {
+    if (A) {
+      window.onNativeMultiScan = function (j) { resolve(j); };
+      window.onNativeScanCancel = function () { resolve(null); };
+      window.onNativeScanError = function (m) { reject(new Error(m)); };
+      A.scanMany(JSON.stringify(snap));
+    } else {
+      var v = window.prompt('Demo mode: type barcodes separated by spaces. Type a code twice to add 2.');
+      var c = {}; (v || '').trim().split(/\s+/).filter(Boolean).forEach(function (x) { c[x] = (c[x] || 0) + 1; });
+      resolve(Object.keys(c).length ? JSON.stringify(c) : null);
+    }
+  }).then(function (j) { scanning = false; if (j) addScanned(JSON.parse(j)); })
+    .catch(function (e) { scanning = false; toast('Scanner problem: ' + e.message + '. You can type the code instead.', true); });
+}
+function addScanned(counts) {
+  var added = 0, unknown = [], capped = [];
+  Object.keys(counts).forEach(function (code) {
+    var p = findP(code), c = Number(counts[code]) || 0;
+    if (!p) { unknown.push(code); return; }
+    var n = Math.min(c, Math.max(0, p.qty - billQty(code)));
+    if (n < c) capped.push(p.name);
+    if (n > 0) {
+      var l = S.bill.filter(function (x) { return x.code === code; })[0];
+      if (l) l.qty += n; else S.bill.push({ code: code, qty: n });
+      added += n;
+    }
+  });
+  render();
+  if (added) toast('Added ' + added + ' item' + (added > 1 ? 's' : '') + ' to the bill');
+  if (unknown.length || capped.length) {
+    modal('<h3>Check these</h3>' +
+      (unknown.length ? '<p class="muted" style="margin:8px 0">Not in your stock list, so not added:</p>' + unknown.map(function (c) { return '<div class="line"><div class="n">' + esc(c) + '</div><button class="btn sm" style="flex:none" data-act="new-from-sell" data-code="' + esc(c) + '">Add product</button></div>'; }).join('') : '') +
+      (capped.length ? '<p class="muted" style="margin:8px 0">Not enough stock for all pieces of: <b>' + esc(capped.join(', ')) + '</b>. Added only what is in stock.</p>' : '') +
+      '<div class="btns" style="margin-top:14px"><button class="btn ghost" data-act="close">OK</button></div>');
+  }
+}
 
 /* ---------------- SELL ---------------- */
 function handleSellCode(code) {
@@ -202,8 +244,7 @@ function handleSellCode(code) {
     return;
   }
   if (p.qty <= 0) { buzz(); modal('<h3>Out of stock</h3><div class="pname">' + esc(p.name) + '</div><p class="muted">0 left. Add stock before selling.</p><div class="btns" style="margin-top:14px"><button class="btn" data-act="addstock" data-code="' + esc(p.barcode) + '">Add stock</button><button class="btn ghost" data-act="close">Close</button></div>'); return; }
-  if (S.db.autoAdd) { if (addToBill(p, 1)) setTimeout(function () { doScan(handleSellCode); }, 250); return; }
-  sellQtyModal(p);
+  addToBill(p, 1);
 }
 function sellQtyModal(p) {
   var left = p.qty - billQty(p.barcode);
@@ -362,7 +403,6 @@ function billsView() {
 function settingsView() {
   return '<div class="card"><h2>Shop</h2><div class="field"><label>Shop name (printed on bills)</label><input id="sShop" value="' + esc(S.db.shop) + '"></div>' +
     '<div class="field"><label>Default low-stock alert (at or below)</label><input id="sLow" type="number" inputmode="numeric" min="0" step="1" value="' + S.db.low + '"></div>' +
-    '<label class="switch"><span>Fast selling: each scan adds 1 item and opens the scanner again</span><input type="checkbox" id="sAuto" ' + (S.db.autoAdd ? 'checked' : '') + '></label>' +
     '<div class="btns"><button class="btn" data-act="save-settings">Save settings</button></div></div>' +
     '<div class="card"><h2>Data folder</h2><p class="muted" style="margin-bottom:10px">' + (A ? 'Saved in: <b>' + esc(S.folder || '?') + '</b><br>Files: stock.json, sales.json (+ backups). Keep this folder; you can copy it to another phone.' : 'Browser demo mode (no folder).') + '</p>' +
     '<div class="btns">' + (A ? '<button class="btn ghost" data-act="change-folder">Choose another folder</button>' : '') + '<button class="btn ghost" data-act="reload">Reload from folder</button></div></div>' +
@@ -401,7 +441,7 @@ document.addEventListener('click', function (e) {
   switch (a) {
     case 'tab': S.tab = t.dataset.tab; closeModal(); render(); break;
     case 'close': closeModal(); break;
-    case 'scan-sell': doScan(handleSellCode); break;
+    case 'scan-sell': doScanMany(); break;
     case 'scan-stock': closeModal(); doScan(handleStockCode); break;
     case 'new-from-sell': closeModal(); productForm(code, null); break;
     case 'do-sell': case 'do-sell-next': {
@@ -433,7 +473,7 @@ document.addEventListener('click', function (e) {
     case 'save-settings': {
       var low = Math.floor(num('#sLow'));
       if (!(low >= 0)) return toast('Alert limit must be 0 or more', true);
-      S.db.shop = $('#sShop').value.trim() || 'My Shop'; S.db.low = low; S.db.autoAdd = $('#sAuto').checked;
+      S.db.shop = $('#sShop').value.trim() || 'My Shop'; S.db.low = low;
       if (saveDb()) { render(); toast('Settings saved'); }
       break; }
     case 'export': exportCsv(); break;

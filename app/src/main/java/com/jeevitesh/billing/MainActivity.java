@@ -17,8 +17,6 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 
-import com.google.zxing.integration.android.IntentIntegrator;
-import com.google.zxing.integration.android.IntentResult;
 
 import org.json.JSONObject;
 
@@ -37,6 +35,8 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends Activity {
 
     private static final int REQ_FOLDER = 4101;
+    private static final int REQ_SINGLE = 4102;
+    private static final int REQ_MULTI = 4103;
     private WebView web;
     private SharedPreferences prefs;
 
@@ -132,13 +132,20 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == IntentIntegrator.REQUEST_CODE) {
-            IntentResult r = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
-            if (r == null || r.getContents() == null) {
-                js("window.onNativeScanCancel()");
-            } else {
-                js("window.onNativeScan(" + JSONObject.quote(r.getContents()) + ")");
+        if (requestCode == REQ_SINGLE || requestCode == REQ_MULTI) {
+            if (resultCode == RESULT_OK && data != null) {
+                if (requestCode == REQ_SINGLE && data.getStringExtra("code") != null) {
+                    js("window.onNativeScan(" + JSONObject.quote(data.getStringExtra("code")) + ")");
+                    return;
+                }
+                if (requestCode == REQ_MULTI && data.getStringExtra("result") != null) {
+                    js("window.onNativeMultiScan(" + JSONObject.quote(data.getStringExtra("result")) + ")");
+                    return;
+                }
             }
+            String err = data == null ? null : data.getStringExtra("error");
+            if (err != null) js("window.onNativeScanError(" + JSONObject.quote(err) + ")");
+            else js("window.onNativeScanCancel()");
             return;
         }
         if (requestCode != REQ_FOLDER) return;
@@ -260,19 +267,34 @@ public class MainActivity extends Activity {
             }
         }
 
-        /** Opens the scanner. The result arrives in window.onNativeScan / onNativeScanCancel / onNativeScanError. */
+        /** Portrait scanner, returns one barcode: window.onNativeScan(code) / onNativeScanCancel / onNativeScanError. */
         @JavascriptInterface
         public void scan() {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        IntentIntegrator ig = new IntentIntegrator(MainActivity.this);
-                        ig.setDesiredBarcodeFormats(IntentIntegrator.ALL_CODE_TYPES);
-                        ig.setPrompt("Point the camera at the barcode");
-                        ig.setBeepEnabled(true);
-                        ig.setOrientationLocked(false);
-                        ig.initiateScan();
+                        Intent i = new Intent(MainActivity.this, ScanActivity.class);
+                        i.putExtra("mode", "single");
+                        startActivityForResult(i, REQ_SINGLE);
+                    } catch (Throwable e) {
+                        js("window.onNativeScanError(" + JSONObject.quote(String.valueOf(e)) + ")");
+                    }
+                }
+            });
+        }
+
+        /** Portrait scanner that stays open for many items. productsJson = {"barcode":{"n":"name","q":stock}}. Result: window.onNativeMultiScan('{"barcode":count}'). */
+        @JavascriptInterface
+        public void scanMany(final String productsJson) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Intent i = new Intent(MainActivity.this, ScanActivity.class);
+                        i.putExtra("mode", "multi");
+                        i.putExtra("products", productsJson);
+                        startActivityForResult(i, REQ_MULTI);
                     } catch (Throwable e) {
                         js("window.onNativeScanError(" + JSONObject.quote(String.valueOf(e)) + ")");
                     }

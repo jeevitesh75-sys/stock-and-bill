@@ -12,3 +12,9 @@ Scan to add stock, scan to sell, low-stock alert at 5 or less. No internet, no d
 4. On GitHub open the Actions tab and wait for "Build APK" (about 4 to 6 minutes).
 5. Open Releases > "Stock & Bill APK" > download StockAndBill.apk, install (allow "install unknown apps").
 6. First launch: choose a folder such as Documents/StockData.
+
+## v2 changes
+- Scanner is portrait only (no need to turn the phone).
+- Selling: the scanner stays open. Each scan adds 1 piece (scan the same item twice = 2). Beep + vibrate on every scan, running list on screen, OK returns to the bill.
+- Add stock still scans one item at a time.
+- Camera permission: the app asks the first time you scan.
